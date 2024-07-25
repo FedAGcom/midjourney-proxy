@@ -1,0 +1,36 @@
+name: CI/CD develop branch
+
+on:
+    push:
+        branches: [ "develop" ]
+env:
+    IMAGE_NAME: midjourney-proxy
+    IMAGE_TAG: latest
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Build and push the image
+        run: |
+          docker login --username deniel369 --password ${{ secrets.FEDAG_TOKEN }} ghcr.io
+          docker build . --tag ghcr.io/fedagcom/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ghcr.io/fedagcom/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.FEDAG_SSH_FOLDER }}
+            docker compose down
+            docker rmi ghcr.io/fedagcom/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            docker compose up -d
